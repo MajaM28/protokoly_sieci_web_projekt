@@ -51,4 +51,20 @@ router.get("/:id", (req, res) => {
   }
 });
 
+//update dane uzytownika -> aktualizacja
+router.put("/:id", (req, res) => {
+  const id = req.params.id;
+  const userIndex = users.findIndex((u) => u.id === id);
+  if (userIndex === -1) {
+    return res.status(404).json("No user like this found");
+  } else {
+    users[userIndex] = {
+      ...users[userIndex],
+      ...req.body,
+    };
+    delete users[userIndex].password;
+    return res.status(200).json(users[userIndex]);
+  }
+});
+
 module.exports = router; // eksportowanie router aby server mogl go zaimportowac
