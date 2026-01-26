@@ -26,7 +26,6 @@ router.post("/", (req, res) => {
 });
 
 router.get("/", (req, res) => {
-  console.log("All users:", users);
   res.json(users);
 });
 
@@ -39,7 +38,7 @@ router.get("/:id", (req, res) => {
   });
 
   if (!found) {
-    return res.status(404).json("No user like this exists");
+    return res.status(404).json("No such user found");
   } else {
     const resultUser = {
       id: found.id,
@@ -56,7 +55,7 @@ router.put("/:id", (req, res) => {
   const id = req.params.id;
   const userIndex = users.findIndex((u) => u.id === id);
   if (userIndex === -1) {
-    return res.status(404).json("No user like this found");
+    return res.status(404).json("No such user found");
   } else {
     users[userIndex] = {
       ...users[userIndex],
@@ -64,6 +63,19 @@ router.put("/:id", (req, res) => {
     };
     delete users[userIndex].password;
     return res.status(200).json(users[userIndex]);
+  }
+});
+
+//usuwanie dane uzytkowanika -> delete
+
+router.delete("/:id", (req, res) => {
+  const id = req.params.id;
+  const userIndex = users.findIndex((u) => u.id === id);
+  if (userIndex === -1) {
+    return res.status(404).json("No such user found");
+  } else {
+    users.splice(userIndex, 1); // modyfikuje a nie usuwam
+    return res.status(200).json("User deleted");
   }
 });
 
