@@ -13,6 +13,9 @@ app.use("/api/users", userRoutes);
 const gameRoutes = require("./routes/games");
 app.use("/api/games", gameRoutes);
 
+const cardRoutes = require("./routes/cards");
+app.use("/api/cards", cardRoutes);
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "Server is running" });
 });
