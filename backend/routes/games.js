@@ -25,6 +25,16 @@ router.get("/", (req, res) => {
   res.json(games);
 });
 
+router.get("/search/:pattern", (req, res) => {
+  const pattern = req.params.pattern.toLowerCase();
+
+  const matchedGames = games.filter((g) => {
+    return g.name.toLowerCase().includes(pattern);
+  });
+
+  return res.json(matchedGames);
+});
+
 router.get("/:id", (req, res) => {
   const id = req.params.id;
   const found = games.find((g) => {
