@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const winners = [];
+const { dbRun, dbGet, dbAll } = require("../database/db");
 
 //post(create), read(get), put(update), delete(delete)
 

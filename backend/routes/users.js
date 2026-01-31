@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router(); // express router -> mini aplikacja do grupowania endpointów
-const users = []; //tymczasowe przechowywanie danych
+const { dbRun, dbGet, dbAll } = require("../database/db");
 
 //rejestracja -> tworzenie nowego usera
 router.post("/", (req, res) => {

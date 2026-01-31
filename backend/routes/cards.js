@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router(); // express router -> mini aplikacja do grupowania endpointów
-const cards = [];
+const { dbRun, dbGet, dbAll } = require("../database/db");
 
 function generateBingoCard() {
   const ranges = [
