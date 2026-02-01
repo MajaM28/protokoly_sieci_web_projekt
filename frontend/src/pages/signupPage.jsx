@@ -24,9 +24,6 @@ export default function SignupPage() {
     }),
     onSubmit: async (values) => {
       setError("");
-      console.log("🚀 Starting signup..."); // ✅ DODAJ
-      console.log("📤 Sending to:", "http://localhost:3000/api/users"); // ✅ DODAJ
-      console.log("📦 Values:", values); // ✅ DODAJ
       try {
         const response = await fetch("http://localhost:3000/api/users", {
           method: "POST",
@@ -35,20 +32,14 @@ export default function SignupPage() {
           },
           body: JSON.stringify(values),
         });
-        console.log("📥 Response status:", response.status); // ✅ DODAJ
-        console.log("📥 Response ok:", response.ok); // ✅ DODAJ
 
         const data = await response.json();
-        console.log("📥 Response data:", data);
         if (response.ok) {
-          console.log("✅ Success! Navigating to login...");
           navigate("/login");
         } else {
-          console.log("❌ Error from server:", data);
           setError(data);
         }
       } catch (err) {
-        console.error("💥 Registration error:", err);
         console.error("Registration error:", err);
         setError("Server error. Please try again.");
       }

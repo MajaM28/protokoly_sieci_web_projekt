@@ -4,77 +4,149 @@ const { dbRun, dbGet, dbAll } = require("../database/db");
 
 //post(create), read(get), put(update), delete(delete)
 
-router.post("/", (req, res) => {
-  const { name, hostId, maxPlayers } = req.body;
-  const newGame = {
-    id: Date.now().toString(),
-    name,
-    hostId,
-    maxPlayers: maxPlayers || 10,
-    players: [],
-    status: "waiting",
-    drawnNumbers: [],
-    createdAt: Date.now(),
-  };
-
-  games.push(newGame);
-  return res.status(201).json(newGame);
-});
-
-router.get("/", (req, res) => {
-  res.json(games);
-});
-
-router.get("/search/:pattern", (req, res) => {
-  const pattern = req.params.pattern.toLowerCase();
-
-  const matchedGames = games.filter((g) => {
-    return g.name.toLowerCase().includes(pattern);
-  });
-
-  return res.json(matchedGames);
-});
-
-router.get("/:id", (req, res) => {
-  const id = req.params.id;
-  const found = games.find((g) => {
-    return g.id === id;
-  });
-  if (!found) {
-    return res.status(404).json("No such game found");
-  } else {
-    return res.status(200).json(found); // 200 dla get -> 201 dla post
-  }
-});
-
-router.put("/:id", (req, res) => {
-  const id = req.params.id;
-  const gameIndex = games.findIndex((g) => {
-    return g.id === id;
-  });
-  if (gameIndex === -1) {
-    return res.status(404).json("No such game found");
-  } else {
-    games[gameIndex] = {
-      ...games[gameIndex],
-      ...req.body,
+router.post("/", async (req, res) => {
+  try {
+    const { name, hostId, maxPlayers } = req.body;
+    const newGame = {
+      id: Date.now().toString(),
+      name,
+      hostId,
+      maxPlayers: maxPlayers || 10,
+      players: [],
+      status: "waiting",
+      drawnNumbers: [],
+      createdAt: Date.now(),
     };
-    return res.status(200).json(games[gameIndex]);
+
+    await dbRun(
+      "INSERT INTO games (id, name, hostId, maxPlayers, players, status, drawnNumbers, createdAt ) VALUES (?, ?, ?, ?, ?,?,?,?)",
+      [
+        newGame.id,
+        newGame.name,
+        newGame.hostId,
+        newGame.maxPlayers,
+        JSON.stringify(newGame.players),
+        newGame.status,
+        JSON.stringify(newGame.drawnNumbers),
+        newGame.createdAt,
+      ],
+    );
+    return res.status(201).json(newGame);
+  } catch (err) {
+    console.error("Game error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
-router.delete("/:id", (req, res) => {
-  const id = req.params.id;
-  const gameIndex = games.findIndex((g) => {
-    return g.id === id;
-  });
-  if (gameIndex === -1) {
-    return res.status(404).json("No such game found");
-  } else {
-    games.splice(gameIndex, 1); // modyfikuje a nie usuwam
-    return res.status(200).json("Game deleted");
+router.get("/", async (req, res) => {
+  try {
+    const allGames = await dbAll("SELECT * FROM games");
+
+    const reworkData = allGames.map((g) => {
+      return {
+        ...g,
+        players: JSON.parse(g.players),
+        drawnNumbers: JSON.parse(g.drawnNumbers), //pamiętaj o parsowaniu danych w tablicy!!!!! bo inaczej zwrócisz stringi !!! lol
+      };
+    });
+
+    return res.json(reworkData);
+  } catch (err) {
+    console.error("Get all games error:", err);
+    return res.status(500).json("Server error");
   }
 });
-// moze poprawic aby zwarcac obiekty a nie stringi , ale to potem
+
+router.get("/search/:pattern", async (req, res) => {
+  try {
+    const pattern = req.params.pattern.toLowerCase();
+    const matchedGames = await dbAll(
+      "SELECT * FROM games WHERE LOWER(name) LIKE ?",
+      [`%${pattern}%`],
+    );
+
+    const reworkMatch = matchedGames.map((g) => ({
+      ...g,
+      players: JSON.parse(g.players),
+      drawnNumbers: JSON.parse(g.drawnNumbers),
+    }));
+
+    return res.status(200).json(reworkMatch);
+  } catch (err) {
+    console.error("Search games error:", err);
+    return res.status(500).json("Server error");
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const id = req.params.id; // id nie przychodzi z posta (body) -> pochoddzi z params (dane z url)
+
+    const found = await dbGet("SELECT * FROM games WHERE id = ?", [id]);
+
+    if (!found) {
+      return res.status(404).json("No such game found");
+    }
+
+    const reworkfind = {
+      ...found,
+      players: JSON.parse(found.players),
+      drawnNumbers: JSON.parse(found.drawnNumbers),
+    };
+
+    return res.status(200).json(reworkfind);
+  } catch (err) {
+    console.error("Get one game error:", err);
+    return res.status(500).json("Server error");
+  }
+});
+
+router.put("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM games WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such game found");
+    }
+    const { name, status, maxPlayers, players, drawnNumbers } = req.body;
+    await dbRun(
+      "UPDATE games SET name = ?, status = ?,maxPlayers = ?, players = ?, drawnNumbers = ? WHERE id = ?",
+      [
+        name || exists.name,
+        status || exists.status,
+        maxPlayers || exists.maxPlayers,
+        players ? JSON.stringify(players) : exists.players,
+        drawnNumbers ? JSON.stringify(drawnNumbers) : exists.drawnNumbers,
+        id,
+      ],
+    ); //updatujemy dane , jak nie zosatły podane to są undefined wiec zosatja te co byly oryginalnie (w exists), nic to nie zwraca (bo to run)
+    const updated = await dbGet("SELECT * FROM games WHERE id = ?", [id]); // trzeba pobrac dane jeszcze raz zeby je zwrocic juz z nowymi wartosciami
+    const reworkUpdate = {
+      ...updated,
+      players: JSON.parse(updated.players),
+      drawnNumbers: JSON.parse(updated.drawnNumbers),
+    };
+    return res.status(200).json(reworkUpdate);
+  } catch (err) {
+    console.error("Update user error:", err);
+    return res.status(500).json("Server error");
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM games WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such game found");
+    }
+
+    await dbRun("DELETE FROM games WHERE id = ?", [id]);
+    return res.status(200).json("Game deleted");
+  } catch (err) {
+    console.error("Delete game error:", err);
+    return res.status(500).json("Server error");
+  }
+});
 
 module.exports = router;
