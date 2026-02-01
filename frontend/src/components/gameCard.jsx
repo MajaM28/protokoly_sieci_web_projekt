@@ -7,6 +7,7 @@ export default function GameCard({ game }) {
       </p>
       <p>Status: {game.status}</p>
       <button>Join Game</button>
+      <button>Watch Game</button>
     </div>
   );
 }

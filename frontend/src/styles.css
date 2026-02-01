@@ -75,5 +75,13 @@ body {
   flex-direction: column;
 }
 .gamecardContainer {
+  margin-top: 5rem;
   background-color: #93abd9;
+}
+
+.navbarContainer {
+  background-color: #e42d76;
+  display: flex;
+  justify-content: space-between;
+  padding: 2rem;
 }
