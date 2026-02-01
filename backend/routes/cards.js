@@ -35,80 +35,129 @@ function generateBingoCard() {
   return singleCard;
 }
 //post(create), read(get), put(update), delete(delete)
-router.post("/", (req, res) => {
-  const { userId, gameId } = req.body;
-  const newCard = {
-    id: Date.now().toString(),
-    userId,
-    gameId,
-    numbers: generateBingoCard(),
-    markedPositions: [[2, 2]],
-    createdAt: new Date(),
-  };
-  cards.push(newCard);
-  return res.status(201).json(newCard);
+router.post("/", async (req, res) => {
+  try {
+    const { userId, gameId } = req.body;
+    const newCard = {
+      id: Date.now().toString(),
+      userId,
+      gameId,
+      numbers: generateBingoCard(),
+      markedPositions: [[2, 2]],
+      createdAt: new Date(),
+    };
+    await dbRun(
+      "INSERT INTO cards (id, userId, gameId, numbers, markedPositions, createdAt) VALUES (?, ?, ?, ?, ?,?)",
+      [
+        newCard.id,
+        newCard.userId,
+        newCard.gameId,
+        JSON.stringify(newCard.numbers),
+        JSON.stringify(newCard.markedPositions),
+        newCard.createdAt,
+      ],
+    );
+    return res.status(201).json(newCard);
+  } catch (err) {
+    console.error("Card error:", err);
+    return res.status(500).json("Server error");
+  }
 });
 
-router.get("/", (req, res) => {
-  const { userId, gameId } = req.query; //parametry z URL
+router.get("/", async (req, res) => {
+  try {
+    const { userId, gameId } = req.query; //parametry z URL
 
-  let filtered = cards;
+    let query = "SELECT * FROM cards WHERE 1=1";
+    const params = [];
+    if (userId) {
+      query += " AND userId = ?";
+      params.push(userId);
+    }
 
-  if (userId) {
-    filtered = filtered.filter((c) => {
-      return c.userId === userId;
+    if (gameId) {
+      query += " AND gameId = ?";
+      params.push(gameId);
+    }
+    const cards = await dbAll(query, params);
+    const reworkCards = cards.map((c) => {
+      return {
+        ...c,
+        numbers: JSON.parse(c.numbers),
+        markedPositions: JSON.parse(c.markedPositions),
+      };
     });
+    return res.status(200).json(reworkCards);
+  } catch (err) {
+    console.error("Get cards error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
-
-  if (gameId) {
-    filtered = filtered.filter((c) => {
-      return c.gameId === gameId;
-    });
-  }
-
-  return res.json(filtered);
 });
 
-router.get("/:id", (req, res) => {
-  const id = req.params.id;
-  const found = cards.find((c) => {
-    return c.id === id;
-  });
+router.get("/:id", async (req, res) => {
+  try {
+    const id = req.params.id; // id nie przychodzi z posta (body) -> pochoddzi z params (dane z url)
 
-  if (!found) {
-    return res.status(404).json("No such card found");
-  } else {
-    return res.status(201).json(found);
+    const found = await dbGet("SELECT * FROM cards WHERE id = ?", [id]);
+
+    if (!found) {
+      return res.status(404).json("No such card found");
+    }
+
+    const reworkfind = {
+      ...found,
+      numbers: JSON.parse(found.numbers),
+      markedPositions: JSON.parse(found.markedPositions),
+    };
+
+    return res.status(200).json(reworkfind);
+  } catch (err) {
+    console.error("Get one card error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
 //ogólny update
-router.put("/:id", (req, res) => {
-  const id = req.params.id;
-  const cardIndex = cards.findIndex((c) => {
-    return c.id === id;
-  });
-  if (cardIndex === -1) {
-    return res.status(404).json("No such card found");
-  } else {
-    cards[cardIndex] = {
-      ...cards[cardIndex],
-      ...req.body,
+router.put("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM cards WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such card found");
+    }
+    const { markedPositions } = req.body;
+    await dbRun("UPDATE cards SET markedPositions = ? WHERE id = ?", [
+      markedPositions
+        ? JSON.stringify(markedPositions)
+        : exists.markedPositions,
+      id,
+    ]); //updatujemy dane , jak nie zosatły podane to są undefined wiec zosatja te co byly oryginalnie (w exists), nic to nie zwraca (bo to run)
+    const updated = await dbGet("SELECT * FROM cards WHERE id = ?", [id]); // trzeba pobrac dane jeszcze raz zeby je zwrocic juz z nowymi wartosciami
+    const reworkUpdate = {
+      ...updated,
+      numbers: JSON.parse(updated.numbers),
+      markedPositions: JSON.parse(updated.markedPositions),
     };
-    return res.status(200).json(cards[cardIndex]);
+    return res.status(200).json(reworkUpdate);
+  } catch (err) {
+    console.error("Update card error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
-router.delete("/:id", (req, res) => {
-  const id = req.params.id;
-  const cardIndex = cards.findIndex((c) => {
-    return c.id === id;
-  });
-  if (cardIndex === -1) {
-    return res.status(404).json("No such card found");
-  } else {
-    cards.splice(cardIndex, 1); // modyfikuje a nie usuwam
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM cards WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such card found");
+    }
+
+    await dbRun("DELETE FROM cards WHERE id = ?", [id]);
     return res.status(200).json("Card deleted");
+  } catch (err) {
+    console.error("Delete card error:", err);
+    return res.status(500).json("Server error");
   }
 });
 

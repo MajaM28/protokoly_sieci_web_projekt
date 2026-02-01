@@ -5,89 +5,122 @@ const { dbRun, dbGet, dbAll } = require("../database/db");
 //post(create), read(get), put(update), delete(delete)
 
 // POST - CREATE result
-router.post("/", (req, res) => {
-  const { gameId, winnerId, winnerName, winnerPattern, roundNumber } = req.body;
+router.post("/", async (req, res) => {
+  try {
+    const { gameId, winnerId, winnerName, winnerPattern, roundNumber } =
+      req.body;
 
-  const newWin = {
-    id: Date.now().toString(),
-    gameId,
-    winnerId,
-    winnerName,
-    winnerPattern,
-    roundNumber,
-    wonAt: Date.now(),
-  };
+    const newWin = {
+      id: Date.now().toString(),
+      gameId,
+      winnerId,
+      winnerName,
+      winnerPattern,
+      roundNumber,
+      wonAt: Date.now(),
+    };
 
-  winners.push(newWin);
-  return res.status(201).json(newWin);
+    await dbRun(
+      "INSERT INTO winners (id, gameId, winnerId, winnerName, winnerPattern, roundNumber, wonAt) VALUES (?, ?, ?, ?, ?,?,?)",
+      [
+        newWin.id,
+        newWin.gameId,
+        newWin.winnerId,
+        newWin.winnerName,
+        newWin.winnerPattern,
+        newWin.roundNumber,
+        newWin.wonAt,
+      ],
+    );
+    return res.status(201).json(newWin);
+  } catch (err) {
+    console.error("Winner error:", err);
+    return res.status(500).json("Server error");
+  }
 });
 
 // GET all - READ all results (z filtrowaniem!)
-router.get("/", (req, res) => {
-  const { gameId, winnerId, roundNumber } = req.query;
+router.get("/", async (req, res) => {
+  try {
+    const { gameId, winnerId, roundNumber } = req.query;
 
-  let filtered = winners;
+    let query = "SELECT * FROM winners WHERE 1=1";
+    const params = [];
+    if (winnerId) {
+      query += " AND winnerId = ?";
+      params.push(winnerId);
+    }
 
-  if (gameId) {
-    filtered = filtered.filter((w) => {
-      return w.gameId === gameId;
-    });
+    if (gameId) {
+      query += " AND gameId = ?";
+      params.push(gameId);
+    }
+
+    if (roundNumber) {
+      query += " AND roundNumber = ?";
+      params.push(roundNumber);
+    }
+    const winners = await dbAll(query, params);
+    return res.status(200).json(winners);
+  } catch (err) {
+    console.error("Get winners error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
-
-  if (winnerId) {
-    filtered = filtered.filter((w) => {
-      return w.winnerId === winnerId;
-    });
-  }
-
-  if (roundNumber) {
-    filtered = filtered.filter((w) => {
-      return w.roundNumber === parseInt(roundNumber);
-    });
-  }
-
-  return res.status(200).json(filtered);
 });
 
 // GET :id - READ one result
-router.get("/:id", (req, res) => {
-  const id = req.params.id;
+router.get("/:id", async (req, res) => {
+  try {
+    const id = req.params.id; // id nie przychodzi z posta (body) -> pochoddzi z params (dane z url)
 
-  const found = winners.find((w) => {
-    return w.id === id;
-  });
+    const found = await dbGet("SELECT * FROM winners WHERE id = ?", [id]);
 
-  if (!found) {
-    return res.status(404).json("No such winner found");
-  } else {
+    if (!found) {
+      return res.status(404).json("No such winner found");
+    }
+
     return res.status(200).json(found);
+  } catch (err) {
+    console.error("Get one winner error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
 // PUT :id - UPDATE result
-router.put("/:id", (req, res) => {
-  const id = req.params.id;
-  const winnerIndex = winners.findIndex((w) => w.id === id);
-  if (winnerIndex === -1) {
-    return res.status(404).json("No such winner found");
-  } else {
-    winners[winnerIndex] = {
-      ...winners[winnerIndex],
-      ...req.body,
-    };
-    return res.status(200).json(winners[winnerIndex]);
+router.put("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM winners WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such winner found");
+    }
+    const { winnerPattern } = req.body;
+    await dbRun("UPDATE winners SET winnerPattern = ? WHERE id = ?", [
+      winnerPattern || exists.winnerPattern,
+      id,
+    ]); //updatujemy dane , jak nie zosatły podane to są undefined wiec zosatja te co byly oryginalnie (w exists), nic to nie zwraca (bo to run)
+    const updated = await dbGet("SELECT * FROM winners WHERE id = ?", [id]); // trzeba pobrac dane jeszcze raz zeby je zwrocic juz z nowymi wartosciami
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error("Update winner error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
 // DELETE :id - DELETE result
-router.delete("/:id", (req, res) => {
-  const id = req.params.id;
-  const winnerIndex = winners.findIndex((w) => w.id === id);
-  if (winnerIndex === -1) {
-    return res.status(404).json("No such winner found");
-  } else {
-    winners.splice(winnerIndex, 1); // modyfikuje a nie usuwam
-    return res.status(200).json("winner deleted");
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const exists = await dbGet("SELECT * FROM winners WHERE id = ?", [id]);
+    if (!exists) {
+      return res.status(404).json("No such winner found");
+    }
+
+    await dbRun("DELETE FROM winners WHERE id = ?", [id]);
+    return res.status(200).json("Winner deleted");
+  } catch (err) {
+    console.error("Delete winner error:", err);
+    return res.status(500).json("Server error");
   }
 });
 
