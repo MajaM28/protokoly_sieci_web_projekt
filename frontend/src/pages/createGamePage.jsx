@@ -5,8 +5,10 @@ import * as Yup from "yup";
 
 export default function CreateGamePage() {
   const [error, setError] = useState("");
-  const userId = localStorage.getItem("userId");
   const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const formik = useFormik({
     initialValues: {
       gameName: "",
@@ -24,23 +26,36 @@ export default function CreateGamePage() {
     onSubmit: async (values) => {
       setError("");
       try {
-        const response = await fetch("http://localhost:3000/api/games", {
+        const res = await fetch("http://localhost:3000/api/games", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            ...values,
-            hostId: userId,
+            name: values.gameName,
+            hostId: user.id,
+            maxPlayers: parseInt(values.maxPlayers) || 10,
           }),
         });
 
-        const data = await response.json();
-        if (response.ok) {
-          navigate(`/game/${data.id}`);
-        } else {
-          setError(data);
+        if (!res.ok) {
+          const errorData = await res.json();
+          setError(errorData);
+          return;
         }
+
+        const newGame = await res.json();
+
+        await fetch("http://localhost:3000/api/cards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            gameId: newGame.id,
+            userId: user.id,
+          }),
+        });
+        alert("Created game!");
+        navigate(`/game/${newGame.id}`);
       } catch (err) {
         console.error("Game creation error:", err);
         setError("Server error. Please try again.");

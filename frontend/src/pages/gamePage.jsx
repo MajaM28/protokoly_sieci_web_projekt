@@ -6,7 +6,7 @@ export default function GamePage() {
   const { gameId } = useParams();
   const [game, setGame] = useState(null);
   const [card, setCard] = useState(null);
-  const [drawnNumbers, setDrawnNumbers] = useState([]);
+  const [drawnNumbers, setDrawnNumbers] = useState(null);
   const [markedPositions, setMarkedPositions] = useState([[2, 2]]);
   const [isWinner, setIsWinner] = useState(false);
 
@@ -19,14 +19,15 @@ export default function GamePage() {
         },
       });
       const gameData = await res.json();
+
       setGame(gameData);
+      setDrawnNumbers(gameData.drawnNumbers || []);
       return gameData;
     };
 
     const fetchUserCardData = async () => {
       const user = JSON.parse(localStorage.getItem("user"));
       const userId = user.id;
-
       const res = await fetch(
         `http://localhost:3000/api/cards?gameId=${gameId}&userId=${userId}`,
         {
@@ -57,7 +58,7 @@ export default function GamePage() {
           },
         );
         const data = await res.json(); // np data = { number: 42, allDrawn: [5, 12, 42] }
-        setDrawnNumbers(data.allDrawn);
+        setDrawnNumbers(data.allDrawn || []);
       };
       postNumber();
     }, 5000);
@@ -84,7 +85,7 @@ export default function GamePage() {
       return "#008000";
     }
 
-    if (drawnNumbers.includes(num)) {
+    if (drawnNumbers?.includes(num)) {
       return "#FFDE21";
     }
     return "white";
@@ -94,7 +95,7 @@ export default function GamePage() {
     if (num === "FREE SPACE") {
       return;
     }
-    if (!drawnNumbers.includes(num)) {
+    if (!drawnNumbers?.includes(num)) {
       alert("This number hasn't been drawn yet!");
       return;
     }
@@ -113,9 +114,91 @@ export default function GamePage() {
       return;
     }
 
-    setMarkedPositions((prev) => {
-      return [...prev, [row, col]]; //pamietaj o spread operator!
-    });
+    const newMarked = [...markedPositions, [row, col]];
+    setMarkedPositions(newMarked);
+    checkBingo(newMarked);
+  }
+
+  function checkBingo(marked) {
+    if (!card) return;
+    const numbers = card.numbers;
+
+    const isPosMarked = (row, col) => {
+      return marked.some((pos) => pos[0] === row && pos[1] === col);
+    };
+
+    for (let row = 0; row < 5; row++) {
+      let rowComplete = true;
+      for (let col = 0; col < 5; col++) {
+        if (!isPosMarked(row, col)) {
+          rowComplete = false;
+          break;
+        }
+      }
+      if (rowComplete) {
+        declareWinner();
+        return;
+      }
+    }
+
+    for (let col = 0; col < 5; col++) {
+      let colComplete = true;
+      for (let row = 0; row < 5; row++) {
+        if (!isPosMarked(row, col)) {
+          colComplete = false;
+          break;
+        }
+      }
+      if (colComplete) {
+        declareWinner();
+        return;
+      }
+    }
+
+    let diag1Complete = true;
+    for (let i = 0; i < 5; i++) {
+      if (!isPosMarked(i, i)) {
+        diag1Complete = false;
+        break;
+      }
+    }
+    if (diag1Complete) {
+      declareWinner();
+      return;
+    }
+
+    let diag2Complete = true;
+    for (let i = 0; i < 5; i++) {
+      if (!isPosMarked(i, 4 - i)) {
+        diag2Complete = false;
+        break;
+      }
+    }
+    if (diag2Complete) {
+      declareWinner();
+      return;
+    }
+  }
+
+  async function declareWinner() {
+    setIsWinner(true);
+
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    try {
+      await fetch("http://localhost:3000/api/winners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameId: parseInt(gameId),
+          userId: user.id,
+        }),
+      });
+
+      alert("BINGO! WINNER");
+    } catch (error) {
+      console.error("Winner save error:", error);
+    }
   }
 
   return (
@@ -130,9 +213,13 @@ export default function GamePage() {
           <div className="drawnNumbersContainer">
             <h3>Drawn Numbers:</h3>
             <div className="drawnNumbersList">
-              {drawnNumbers.length === 0
-                ? "No numbers yet..."
-                : drawnNumbers.join(", ")}
+              {drawnNumbers === null ? (
+                <div>Loading numbers...</div>
+              ) : drawnNumbers.length === 0 ? (
+                <div>No numbers yet...</div>
+              ) : (
+                <div>{drawnNumbers.join(", ")}</div>
+              )}
             </div>
           </div>
 
