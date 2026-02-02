@@ -1,3 +1,14 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
 body {
   background-color: #fffeec;
 }
@@ -81,8 +92,59 @@ body {
 }
 
 .navbarContainer {
-  background-color: #e42d76;
+  color: #fffeec;
+  font-family: "Chewy";
+  font-size: 2.5rem;
+  background-color: #f2619c;
   display: flex;
+  position: sticky;
   justify-content: space-between;
-  padding: 2rem;
+  padding: 1rem;
+  margin: 0;
+}
+
+.gameContainer {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.gameHeader {
+  margin-bottom: 30px;
+}
+
+.drawnNumbersContainer {
+  margin-bottom: 30px;
+}
+
+.drawnNumbersList {
+  font-size: 18px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.cardContainer {
+  margin-bottom: 30px;
+}
+
+.bingoGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 80px);
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.bingoCell {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #333;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }

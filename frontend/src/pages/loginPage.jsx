@@ -39,6 +39,7 @@ export default function LoginPage() {
           navigate("/lobby");
         } else {
           setError(data);
+          alert("Not able to login!");
         }
       } catch (err) {
         console.error("Login error:", err);
