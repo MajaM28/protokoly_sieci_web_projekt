@@ -12,16 +12,11 @@ export default function CreateGamePage() {
   const formik = useFormik({
     initialValues: {
       gameName: "",
-      maxPlayers: "",
     },
     validationSchema: Yup.object({
       gameName: Yup.string()
         .required("Game Name is required!")
         .max(20, "Name can't be longer then 20 char"),
-      maxPlayers: Yup.number()
-        .required("The max number of players is required!")
-        .typeError("max players must be a number")
-        .max(10, "There can only be up to ten players"),
     }),
     onSubmit: async (values) => {
       setError("");
@@ -34,7 +29,6 @@ export default function CreateGamePage() {
           body: JSON.stringify({
             name: values.gameName,
             hostId: user.id,
-            maxPlayers: parseInt(values.maxPlayers) || 10,
           }),
         });
 
@@ -80,17 +74,6 @@ export default function CreateGamePage() {
         />
         {formik.touched.gameName && formik.errors.gameName && (
           <div className="formOneError">{formik.errors.gameName}</div>
-        )}
-        <input
-          name="maxPlayers"
-          type="number"
-          placeholder="max numbers of players"
-          value={formik.values.maxPlayers}
-          onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
-        />
-        {formik.touched.maxPlayers && formik.errors.maxPlayers && (
-          <div className="formOneError">{formik.errors.maxPlayers}</div>
         )}
         <button
           className="formOneButton"

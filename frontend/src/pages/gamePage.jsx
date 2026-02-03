@@ -30,7 +30,7 @@ export default function GamePage() {
   useEffect(() => {
     const socket = io("http://localhost:3000"); //łaczenie sie z serwerm
 
-    socket.emit("join-game", gameId); //dołaczenie do gry
+    socket.emit("join-game", gameId);
 
     socket.on("number-drawn", (data) => {
       console.log("New number drawn:", data.number); // listening na nowe numery

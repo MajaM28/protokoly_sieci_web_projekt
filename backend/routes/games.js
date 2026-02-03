@@ -6,12 +6,11 @@ const { dbRun, dbGet, dbAll } = require("../database/db");
 
 router.post("/", async (req, res) => {
   try {
-    const { name, hostId, maxPlayers } = req.body;
+    const { name, hostId } = req.body;
     const newGame = {
       id: Date.now().toString(),
       name,
       hostId,
-      maxPlayers: maxPlayers || 10,
       players: [],
       status: "waiting",
       drawnNumbers: [],
@@ -19,12 +18,11 @@ router.post("/", async (req, res) => {
     };
 
     await dbRun(
-      "INSERT INTO games (id, name, hostId, maxPlayers, players, status, drawnNumbers, createdAt ) VALUES (?, ?, ?, ?, ?,?,?,?)",
+      "INSERT INTO games (id, name, hostId, players, status, drawnNumbers, createdAt ) VALUES (?, ?, ?, ?, ?,?,?)",
       [
         newGame.id,
         newGame.name,
         newGame.hostId,
-        newGame.maxPlayers,
         JSON.stringify(newGame.players),
         newGame.status,
         JSON.stringify(newGame.drawnNumbers),
@@ -109,13 +107,12 @@ router.put("/:id", async (req, res) => {
     if (!exists) {
       return res.status(404).json("No such game found");
     }
-    const { name, status, maxPlayers, players, drawnNumbers } = req.body;
+    const { name, status, players, drawnNumbers } = req.body;
     await dbRun(
-      "UPDATE games SET name = ?, status = ?,maxPlayers = ?, players = ?, drawnNumbers = ? WHERE id = ?",
+      "UPDATE games SET name = ?, status = ?, players = ?, drawnNumbers = ? WHERE id = ?",
       [
         name || exists.name,
         status || exists.status,
-        maxPlayers || exists.maxPlayers,
         players ? JSON.stringify(players) : exists.players,
         drawnNumbers ? JSON.stringify(drawnNumbers) : exists.drawnNumbers,
         id,
