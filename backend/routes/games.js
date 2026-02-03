@@ -127,6 +127,9 @@ router.put("/:id", async (req, res) => {
       players: JSON.parse(updated.players),
       drawnNumbers: JSON.parse(updated.drawnNumbers),
     };
+
+    req.app.get("io").emit("gameUpdated", reworkUpdate);
+
     return res.status(200).json(reworkUpdate);
   } catch (err) {
     console.error("Update user error:", err);

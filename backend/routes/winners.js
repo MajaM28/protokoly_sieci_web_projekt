@@ -7,31 +7,39 @@ const { dbRun, dbGet, dbAll } = require("../database/db");
 // POST - CREATE result
 router.post("/", async (req, res) => {
   try {
-    const { gameId, winnerId, winnerName, winnerPattern, roundNumber } =
-      req.body;
+    const { gameId, winnerId } = req.body;
+
+    const user = await dbGet("SELECT * FROM users WHERE id = ?", [winnerId]);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     const newWin = {
       id: Date.now().toString(),
       gameId,
       winnerId,
-      winnerName,
-      winnerPattern,
-      roundNumber,
+      winnerName: user.username,
       wonAt: Date.now(),
     };
 
     await dbRun(
-      "INSERT INTO winners (id, gameId, winnerId, winnerName, winnerPattern, roundNumber, wonAt) VALUES (?, ?, ?, ?, ?,?,?)",
+      "INSERT INTO winners (id, gameId, winnerId, winnerName, wonAt) VALUES (?, ?, ?, ?, ?)",
       [
         newWin.id,
         newWin.gameId,
         newWin.winnerId,
         newWin.winnerName,
-        newWin.winnerPattern,
-        newWin.roundNumber,
         newWin.wonAt,
       ],
     );
+
+    req.app.get("io").to(`game-${gameId}`).emit("bingoWinner", {
+      winnerId: winnerId,
+      winner: user.username,
+      gameId: gameId,
+    });
+
     return res.status(201).json(newWin);
   } catch (err) {
     console.error("Winner error:", err);

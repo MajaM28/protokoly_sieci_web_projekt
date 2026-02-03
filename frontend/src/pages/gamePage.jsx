@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import io from "socket.io-client";
 
 export default function GamePage() {
   const { gameId } = useParams();
+  const navigate = useNavigate();
   const [game, setGame] = useState(null);
   const [card, setCard] = useState(null);
   const [drawnNumbers, setDrawnNumbers] = useState(null);
@@ -12,6 +13,16 @@ export default function GamePage() {
   const [isWinner, setIsWinner] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [latestNumber, setLatestNumber] = useState(null);
+
+  let isHost = false;
+  if (currentUser?.id === game?.hostId) {
+    isHost = true;
+  }
+
+  let canStartGame = false;
+  if (isHost && game?.status === "waiting") {
+    canStartGame = true;
+  }
 
   useEffect(() => {
     const socket = io("http://localhost:3000"); //łaczenie sie z serwerm
@@ -28,6 +39,21 @@ export default function GamePage() {
     socket.on(`gameStarted:${gameId}`, (data) => {
       console.log("Game started!", data);
       setGame((prev) => ({ ...prev, status: "in_progress" }));
+    });
+
+    socket.on("gameUpdated", (updatedGame) => {
+      if (updatedGame.id === gameId) {
+        console.log("Game updated!", updatedGame);
+        setGame(updatedGame);
+      }
+    });
+
+    socket.on("bingoWinner", (data) => {
+      const user = JSON.parse(localStorage.getItem("user"));
+
+      if (data.winnerId !== user.id) {
+        alert(`${data.winner} has won!`);
+      }
     });
 
     return () => {
@@ -75,6 +101,15 @@ export default function GamePage() {
     if (!gameId || game?.status !== "in_progress" || !isHost) return;
     const interval = setInterval(() => {
       const postNumber = async () => {
+        const resGame = await fetch(
+          `http://localhost:3000/api/games/${gameId}`,
+        );
+        const currentGame = await resGame.json();
+        if (currentGame.status !== "in_progress") {
+          clearInterval(interval);
+          return;
+        }
+
         const res = await fetch(
           `http://localhost:3000/api/games/${gameId}/draw`,
           {
@@ -91,7 +126,7 @@ export default function GamePage() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [gameId, game?.status]);
+  }, [gameId, game?.status, isHost]);
 
   const handleStartGame = async () => {
     try {
@@ -116,16 +151,6 @@ export default function GamePage() {
       console.error("Failed to start game:", error);
     }
   };
-
-  let isHost = false;
-  if (currentUser?.id === game?.hostId) {
-    isHost = true;
-  }
-
-  let canStartGame = false;
-  if (isHost && game?.status === "waiting") {
-    canStartGame = true;
-  }
 
   function bgColor(num, row, col) {
     if (num === "FREE SPACE") {
@@ -252,9 +277,21 @@ export default function GamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           gameId: parseInt(gameId),
-          userId: user.id,
+          winnerId: user.id,
         }),
       });
+
+      const gameRes = await fetch(`http://localhost:3000/api/games/${gameId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "finished",
+        }),
+      });
+
+      if (!gameRes.ok) {
+        throw new Error("Failed to finish game");
+      }
 
       alert("BINGO! WINNER");
     } catch (error) {
@@ -262,8 +299,27 @@ export default function GamePage() {
     }
   }
 
+  const handleClose = async () => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/games/${gameId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Game deleted!");
+        navigate("/lobby");
+      } else {
+        alert("Failed to delete game");
+      }
+    } catch (error) {
+      console.error("Failed to delete game:", error);
+      alert("Error deleting game");
+    }
+  };
+
   return (
     <div className="gameContainer">
+      {}
       {!game || !card ? (
         <div>Loading...</div>
       ) : (
@@ -272,6 +328,9 @@ export default function GamePage() {
             <h1>{game.name}</h1>
             {canStartGame && (
               <button onClick={handleStartGame}>Start game!</button>
+            )}
+            {isHost && game?.status === "finished" && (
+              <button onClick={handleClose}>Close Game</button>
             )}
           </div>
           <div className="drawnNumbersContainer">
